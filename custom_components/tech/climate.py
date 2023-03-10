@@ -1,19 +1,14 @@
 """Support for Tech HVAC system."""
 import logging
-import json
 from typing import List, Optional
 from homeassistant.components.climate import ClimateEntity
 from homeassistant.components.climate.const import (
     HVAC_MODE_HEAT,
-    HVAC_MODE_COOL,
-    HVAC_MODE_HEAT_COOL,
     HVAC_MODE_OFF,
     CURRENT_HVAC_HEAT,
-    CURRENT_HVAC_COOL,
     CURRENT_HVAC_IDLE,
     CURRENT_HVAC_OFF,
-    SUPPORT_PRESET_MODE,
-    SUPPORT_TARGET_TEMPERATURE,
+    SUPPORT_TARGET_TEMPERATURE
 )
 from homeassistant.const import ATTR_TEMPERATURE, TEMP_CELSIUS
 from .const import DOMAIN
@@ -24,10 +19,10 @@ SUPPORT_HVAC = [HVAC_MODE_HEAT, HVAC_MODE_OFF]
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Set up entry."""
-    _LOGGER.debug("Setting up entry, module udid: " + config_entry.data["udid"])
+    _LOGGER.debug("Setting up climate entry, module udid: " + config_entry.data["udid"])
     api = hass.data[DOMAIN][config_entry.entry_id]
     zones = await api.get_module_zones(config_entry.data["udid"])
-    
+
     async_add_entities(
         [
             TechThermostat(
@@ -79,7 +74,7 @@ class TechThermostat(ClimateEntity):
     def unique_id(self) -> str:
         """Return a unique ID."""
         return self._id
-    
+
     @property
     def name(self):
         """Return the name of the device."""

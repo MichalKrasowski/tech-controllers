@@ -46,7 +46,7 @@ class Tech:
             data = await response.json()
             _LOGGER.debug(data)
             return data
-    
+
     async def post(self, request_path, post_data):
         url = self.base_url + request_path
         _LOGGER.debug("Sending POST request: " + url)
@@ -58,7 +58,7 @@ class Tech:
             data = await response.json()
             _LOGGER.debug(data)
             return data
-    
+
     async def authenticate(self, username, password):
         path = "authentication"
         post_data = '{"username": "' + username + '", "password": "' + password + '"}'
@@ -81,7 +81,7 @@ class Tech:
         else:
             raise TechError(401, "Unauthorized")
         return result
-    
+
     async def get_module_data(self, module_udid):
         _LOGGER.debug("Getting module data..." + module_udid + ", " + self.user_id)
         if self.authenticated:
@@ -90,7 +90,7 @@ class Tech:
         else:
             raise TechError(401, "Unauthorized")
         return result
-    
+
     async def get_module_zones(self, module_udid):
         """Returns Tech module zones either from cache or it will
         update all the cached values for Tech module assuming
@@ -107,15 +107,15 @@ class Tech:
             now = time.time()
             _LOGGER.debug("Geting module zones: now: %s, last_update %s, interval: %s", now, self.last_update, self.update_interval)
             if self.last_update is None or now > self.last_update + self.update_interval:
-                _LOGGER.debug("Updating module zones cache..." + module_udid)    
+                _LOGGER.debug("Updating module zones cache..." + module_udid)
                 result = await self.get_module_data(module_udid)
                 zones = result["zones"]["elements"]
-                zones = list(filter(lambda e: e['zone']['zoneState'] != "zoneUnregistered", zones))
+                zones = list(filter(lambda e: e['zone']['visibility'], zones))
                 for zone in zones:
                     self.zones[zone["zone"]["id"]] = zone
                 self.last_update = now
         return self.zones
-    
+
     async def get_zone(self, module_udid, zone_id):
         """Returns zone from Tech API cache.
 
@@ -131,7 +131,7 @@ class Tech:
 
     async def set_const_temp(self, module_udid, zone_id, target_temp):
         """Sets constant temperature of the zone.
-        
+
         Parameters:
         module_udid (string): The Tech module udid.
         zone_id (int): The Tech module zone ID.
@@ -162,7 +162,7 @@ class Tech:
 
     async def set_zone(self, module_udid, zone_id, on = True):
         """Turns the zone on or off.
-        
+
         Parameters:
         module_udid (string): The Tech module udid.
         zone_id (int): The Tech module zone ID.
