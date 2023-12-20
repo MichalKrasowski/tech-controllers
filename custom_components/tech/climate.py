@@ -50,6 +50,7 @@ class TechThermostat(ClimateEntity):
         self._config_entry = config_entry
         self._api = api
         self._id = device["zone"]["id"]
+        self._uuid = config_entry.data["udid"] + "_" + str(device["zone"]["id"])
         self.update_properties(device)
 
     def update_properties(self, device):
@@ -78,7 +79,7 @@ class TechThermostat(ClimateEntity):
     @property
     def unique_id(self) -> str:
         """Return a unique ID."""
-        return self._id
+        return self._uuid
     
     @property
     def name(self):
