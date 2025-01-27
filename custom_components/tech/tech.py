@@ -97,7 +97,6 @@ class Tech:
         no update has occurred for at least the [update_interval].
 
         Parameters:
-        inst (Tech): The instance of the Tech API.
         module_udid (string): The Tech module udid.
 
         Returns:
@@ -105,17 +104,18 @@ class Tech:
         """
         async with self.update_lock:
             now = time.time()
-            _LOGGER.debug("Geting module zones: now: %s, last_update %s, interval: %s", now, self.last_update, self.update_interval)
+            _LOGGER.debug("Getting module zones: now: %s, last_update: %s, interval: %s", now, self.last_update, self.update_interval)
             if self.last_update is None or now > self.last_update + self.update_interval:
-                _LOGGER.debug("Updating module zones cache..." + module_udid)    
+                _LOGGER.debug("Updating module zones cache..." + module_udid)
                 result = await self.get_module_data(module_udid)
                 zones = result["zones"]["elements"]
                 zones = list(filter(lambda e: e['zone']['zoneState'] != "zoneUnregistered", zones))
                 for zone in zones:
-                    self.zones[zone["zone"]["id"]] = zone
+                    if not zone['zone'].get('duringChange', False):
+                        self.zones[zone["zone"]["id"]] = zone
                 self.last_update = now
         return self.zones
-    
+
     async def get_zone(self, module_udid, zone_id):
         """Returns zone from Tech API cache.
 
@@ -131,7 +131,7 @@ class Tech:
 
     async def set_const_temp(self, module_udid, zone_id, target_temp):
         """Sets constant temperature of the zone.
-        
+
         Parameters:
         module_udid (string): The Tech module udid.
         zone_id (int): The Tech module zone ID.
@@ -143,26 +143,34 @@ class Tech:
         _LOGGER.debug("Setting zone constant temperature...")
         if self.authenticated:
             path = "users/" + self.user_id + "/modules/" + module_udid + "/zones"
+            set_temp = int(target_temp * 10)
             data = {
-                "mode" : {
-                    "id" : self.zones[zone_id]["mode"]["id"],
-                    "parentId" : zone_id,
-                    "mode" : "constantTemp",
-                    "constTempTime" : 60,
-                    "setTemperature" : int(target_temp  * 10),
-                    "scheduleIndex" : 0
+                "mode": {
+                    "id": self.zones[zone_id]["mode"]["id"],
+                    "parentId": zone_id,
+                    "mode": "constantTemp",
+                    "constTempTime": 60,
+                    "setTemperature": set_temp,
+                    "scheduleIndex": 0
                 }
             }
             _LOGGER.debug(data)
             result = await self.post(path, json.dumps(data))
             _LOGGER.debug(result)
+
+            # Update data in cache
+            if zone_id in self.zones:
+                self.zones[zone_id]['zone']['setTemperature'] = set_temp
+                _LOGGER.debug("Updated cached zone set temperature to %s", target_temp)
+            else:
+                _LOGGER.debug("Zone not found in cache: %s", zone_id)
         else:
             raise TechError(401, "Unauthorized")
         return result
 
     async def set_zone(self, module_udid, zone_id, on = True):
         """Turns the zone on or off.
-        
+
         Parameters:
         module_udid (string): The Tech module udid.
         zone_id (int): The Tech module zone ID.
@@ -174,15 +182,24 @@ class Tech:
         _LOGGER.debug("Turing zone on/off: %s", on)
         if self.authenticated:
             path = "users/" + self.user_id + "/modules/" + module_udid + "/zones"
+            zone_state = "zoneOn" if on else "zoneOff"
             data = {
                 "zone" : {
                     "id" : zone_id,
-                    "zoneState" : "zoneOn" if on else "zoneOff"
+                    "zoneState" : zone_state
                 }
             }
             _LOGGER.debug(data)
             result = await self.post(path, json.dumps(data))
             _LOGGER.debug(result)
+
+            if zone_id in self.zones:
+                relay_state = "on" if on else "off"
+                self.zones[zone_id]['zone']['flags']['relayState'] = relay_state
+                self.zones[zone_id]['zone']['zoneState'] = zone_state
+                _LOGGER.debug("Updated cached zone relay state to " + relay_state)
+            else:
+                _LOGGER.debug("Zone not found in cache: " + str(zone_id))
         else:
             raise TechError(401, "Unauthorized")
         return result
